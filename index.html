@@ -94,7 +94,8 @@
 
         <div class="card">
             <label><b>Búsqueda por ID RF:</b></label>
-            <input type="text" id="g_inputIdRf" class="highlight" placeholder="Escaneá o escribí el ID RF..." oninput="buscarPorIdRfGuardado()" onchange="buscarPorIdRfGuardado()">
+            <input type="text" id="g_inputIdRf" list="listaIdRfs" class="highlight" placeholder="Tipeá, escaneá o seleccioná el ID RF..." oninput="buscarPorIdRfGuardado()" onchange="buscarPorIdRfGuardado()">
+            <datalist id="listaIdRfs"></datalist>
         </div>
 
         <!-- Datos traídos del Sheet con opción de editar/completar a mano -->
@@ -146,7 +147,7 @@
 
     <script>
         let baseDatos = [];
-        let baseUbicaciones = {}; // Diccionario para mapear Ubicación STK -> Dígito Verificador
+        let baseUbicaciones = {}; 
         let itemsDeOCActual = [];
         let itemSeleccionadoActual = null;
         let itemGuardadoActual = null;
@@ -182,15 +183,26 @@
                     }
                 }
 
+                // Cargar datalist de OCs (Módulo Ingresos)
                 let ocsUnicas = [...new Set(baseDatos.map(i => String(getVal(i, ['OC']))).filter(x => x !== ""))];
-                let datalist = document.getElementById("listaOCs");
-                datalist.innerHTML = "";
-               
+                let datalistOCs = document.getElementById("listaOCs");
+                datalistOCs.innerHTML = "";
                 ocsUnicas.forEach(oc => {
                     let opt = document.createElement("option");
                     opt.value = oc;
-                    datalist.appendChild(opt);
+                    datalistOCs.appendChild(opt);
                 });
+
+                // Cargar datalist de ID RFs (Módulo Guardado)
+                let idRfsUnicos = [...new Set(baseDatos.map(i => String(getVal(i, ['ID RF', 'IDRF']))).filter(x => x !== ""))];
+                let datalistIdRfs = document.getElementById("listaIdRfs");
+                datalistIdRfs.innerHTML = "";
+                idRfsUnicos.forEach(idrf => {
+                    let opt = document.createElement("option");
+                    opt.value = idrf;
+                    datalistIdRfs.appendChild(opt);
+                });
+
                 document.getElementById("loadingMsg").style.display = "none";
             })
             .catch(err => {
@@ -488,11 +500,11 @@
                 lote: loteManual,
                 cantidad: cantidadManual,
                 stk: stk,
-                dig: dig,   // Apunta a la columna DIG
-                mus: mus,   // Apunta a la columna MUS
-                rot: rot,   // Apunta a la columna ROT
-                fao: fao,   // Apunta a la columna FAO
-                rec: rec,   // Apunta a la columna REC
+                dig: dig,
+                mus: mus,
+                rot: rot,
+                fao: fao,
+                rec: rec,
                 tipoAccion: "GUARDADO"
             };
 
