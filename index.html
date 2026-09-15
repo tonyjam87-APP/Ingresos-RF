@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Almacén</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; padding: 15px; margin: 0; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        input, select, button { width: 100%; padding: 12px; margin-top: 8px; background: #2d2d2d; border: 1px solid #444; color: #fff; border-radius: 5px; font-size: 16px; box-sizing: border-box;}
+        button { background: #4CAF50; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        button:active { background: #388E3C; }
+        label { font-size: 14px; color: #b0b0b0; display: block; margin-top: 10px; }
+        .highlight { border: 2px solid #4CAF50; }
+        .loading { text-align: center; color: #FF9800; font-weight: bold; margin-bottom: 10px; }
+        .disabled-section { opacity: 0.4; pointer-events: none; }
+        
+        /* Estilos de Menú Principal */
+        .menu-principal-container { text-align: center; margin-top: 80px; max-width: 400px; margin-left: auto; margin-right: auto; }
+        .menu-principal-container h1 { margin-bottom: 30px; color: #fff; }
+        .btn-menu { display: block; width: 100%; padding: 20px; margin: 15px 0; font-size: 20px; font-weight: bold; background-color: #2c3e50; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-menu:hover { background-color: #34495e; }
+        .btn-volver { background-color: #e74c3c; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-bottom: 15px; width: auto; display: inline-block; }
+        .seccion-oculta { display: none; }
+        
+        /* Checkboxes para Guardado */
+        .checkbox-group { display: flex; align-items: center; justify-content: space-between; background: #2d2d2d; padding: 12px; border-radius: 5px; margin-top: 8px; border: 1px solid #444; }
+        .checkbox-group label { margin: 0; color: #fff; font-weight: bold; cursor: pointer; }
+        .checkbox-group input[type="checkbox"] { width: 24px; height: 24px; accent-color: #4CAF50; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- MENÚ PRINCIPAL -->
+    <div id="menuPrincipal" class="menu-principal-container">
+        <h1>Gestión de Almacén</h1>
+        <p style="color: #b0b0b0; margin-bottom: 20px;">Seleccione el módulo de trabajo:</p>
+        <button class="btn-menu" onclick="irAIngresos()">INGRESOS</button>
+        <button class="btn-menu" onclick="irAGuardado()">GUARDADO</button>
+    </div>
+
+    <!-- MÓDULO DE INGRESOS -->
+    <div id="moduloIngresos" class="seccion-oculta">
+        <button class="btn-volver" onclick="volverAlMenu()">⬅ Volver al Menú</button>
+        <h2>Registro de Ingresos RF</h2>
+        <div id="loadingMsg" class="loading">Cargando base de datos de OCs...</div>
+
+        <div class="card">
+            <label><b>1. Número de OC:</b></label>
+            <input type="text" id="inputOC" list="listaOCs" placeholder="Tipeá o seleccioná la OC..." oninput="seleccionarOC()" onchange="seleccionarOC()">
+            <datalist id="listaOCs"></datalist>
+        </div>
+
+        <div class="card disabled-section" id="seccionCodigo">
+            <label><b>2. Código de Artículo:</b></label>
+            <input type="text" id="inputCodigo" list="listaCodigos" placeholder="Tipeá o escaneá el código..." oninput="filtrarPorCodigo()" onchange="filtrarPorCodigo()">
+            <datalist id="listaCodigos"></datalist>
+        </div>
+
+        <div class="card disabled-section" id="seccionSelecciones">
+            <label><b>Seleccionar Partida:</b></label>
+            <select id="selectPartida" onchange="filtrarPorSelectores()">
+                <option value="">-- Seleccioná la Partida --</option>
+            </select>
+            <label><b>Seleccionar IRC:</b></label>
+            <select id="selectIrc" onchange="filtrarPorSelectores()">
+                <option value="">-- Seleccioná el IRC --</option>
+            </select>
+            <label><b>Seleccionar Nro. de Línea:</b></label>
+            <select id="selectLinea" onchange="filtrarPorSelectores()">
+                <option value="">-- Seleccioná la Línea --</option>
+            </select>
+            <label><b>Seleccionar Lote / Renglón:</b></label>
+            <select id="selectLoteItem" onchange="cargarDatosFinales()">
+                <option value="">-- Seleccioná el lote/renglón --</option>
+            </select>
+        </div>
+
+        <div class="card disabled-section" id="seccionConfirmacion">
+            <label>Lote (Editable / Vacío si es bolso):</label>
+            <input type="text" id="txtLote" placeholder="Número de lote">
+            <label>Cantidad:</label>
+            <input type="number" id="txtCantidad" placeholder="Cantidad física">
+            <label><b>ID RF:</b></label>
+            <input type="text" id="txtIdRf" class="highlight" placeholder="Escribí o escaneá la etiqueta ID RF...">
+            <button onclick="enviarAlSheets()">CONFIRMAR Y ENVIAR</button>
+        </div>
+    </div>
+
+    <!-- MÓDULO DE GUARDADO -->
+    <div id="moduloGuardado" class="seccion-oculta">
+        <button class="btn-volver" onclick="volverAlMenu()">⬅ Volver al Menú</button>
+        <h2>Módulo de Guardado</h2>
+
+        <div class="card">
+            <label><b>Búsqueda por ID RF:</b></label>
+            <input type="text" id="g_inputIdRf" list="listaIdRfs" class="highlight" placeholder="Tipeá, escaneá o seleccioná el ID RF..." oninput="buscarPorIdRfGuardado()" onchange="buscarPorIdRfGuardado()">
+            <datalist id="listaIdRfs"></datalist>
+        </div>
+
+        <!-- Datos traídos del Sheet con opción de editar/completar a mano -->
+        <div class="card disabled-section" id="g_seccionDatos">
+            <label>OC Asociada:</label>
+            <input type="text" id="g_txtOc" placeholder="OC">
+
+            <label>Código de Artículo:</label>
+            <input type="text" id="g_txtCodigo" placeholder="Código">
+
+            <label>Lote:</label>
+            <input type="text" id="g_txtLote" placeholder="Lote">
+
+            <label>Cantidad:</label>
+            <input type="number" id="g_txtCantidad" placeholder="Cantidad">
+        </div>
+
+        <!-- Ubicación STK, Dígito Automático (Pestaña STK) y Calidad -->
+        <div class="card disabled-section" id="g_seccionUbicacion">
+            <label><b>Ubicación STK (Columna I):</b></label>
+            <input type="text" id="g_txtStk" placeholder="Ej: STK-001-01" oninput="autocompletarDigito()" onchange="autocompletarDigito()">
+
+            <label><b>Dígito de Confirmación - DIG (Columna J):</b></label>
+            <input type="text" id="g_txtDigito" placeholder="Se completa solo o a mano">
+
+            <div class="checkbox-group">
+                <label>Muestra - MUS (Columna K)</label>
+                <input type="checkbox" id="g_chkMus">
+            </div>
+
+            <div class="checkbox-group">
+                <label>Roturas - ROT (Columna L)</label>
+                <input type="checkbox" id="g_chkRot">
+            </div>
+
+            <div class="checkbox-group">
+                <label>Faltante de Origen - FAO (Columna M)</label>
+                <input type="checkbox" id="g_chkFao">
+            </div>
+
+            <div class="checkbox-group">
+                <label>Recuperable - REC (Columna N)</label>
+                <input type="checkbox" id="g_chkRec">
+            </div>
+
+            <button onclick="enviarGuardadoAlSheets()">CONFIRMAR GUARDADO</button>
+        </div>
+    </div>
+
+    <script>
+        let baseDatos = [];
+        let baseUbicaciones = {}; 
+        let itemsDeOCActual = [];
+        let itemSeleccionadoActual = null;
+        let itemGuardadoActual = null;
+       
+        const URL_WEBHOOK = "https://hook.us2.make.com/a31zyxxicics3loy1p2p8q1b7ga8fcq4";
+const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbzzIUjh2CMMdpukASiFfGMknQvh1ssxskWQmpXuxtc0IGQaAAS5S6oGcZAW9rfdVY4T/exec";
+        // Función inteligente para buscar claves sin importar espacios, mayúsculas o variaciones
+        function getVal(item, keys) {
+            if (!item) return "";
+            for (let k of keys) {
+                let limpiaK = k.replace(/[\s_]/g, "").toUpperCase();
+                let encontrada = Object.keys(item).find(prop => {
+                    let limpiaProp = prop.replace(/[\s_]/g, "").toUpperCase();
+                    return limpiaProp === limpiaK;
+                });
+                if (encontrada && item[encontrada] !== undefined && item[encontrada] !== null) {
+                    return String(item[encontrada]).trim();
+                }
+            }
+            return "";
+        }
+
+        window.onload = function() {
+            fetch(URL_APPS_SCRIPT)
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    baseDatos = data;
+                } else {
+                    baseDatos = data.ingresos || [];
+                    if (data.ubicaciones) {
+                        data.ubicaciones.forEach(u => {
+                            let stkKey = String(u.stk || u.STK || "").trim().toUpperCase();
+                            let digVal = String(u.digito || u.DIGITO || u.DIG || "").trim();
+                            if(stkKey) {
+                                baseUbicaciones[stkKey] = digVal;
+                            }
+                        });
+                    }
+                }
+
+                // Cargar datalist de OCs (Módulo Ingresos)
+                let ocsUnicas = [...new Set(baseDatos.map(i => getVal(i, ['OC', 'NRO_OC', 'NUMERO_OC'])).filter(x => x !== ""))];
+                let datalistOCs = document.getElementById("listaOCs");
+                datalistOCs.innerHTML = "";
+                ocsUnicas.forEach(oc => {
+                    let opt = document.createElement("option");
+                    opt.value = oc;
+                    datalistOCs.appendChild(opt);
+                });
+
+                // Cargar datalist de ID RFs (Módulo Guardado)
+                let idRfsUnicos = [...new Set(baseDatos.map(i => getVal(i, ['ID RF', 'IDRF', 'ID_RF'])).filter(x => x !== ""))];
+                let datalistIdRfs = document.getElementById("listaIdRfs");
+                datalistIdRfs.innerHTML = "";
+                idRfsUnicos.forEach(idrf => {
+                    let opt = document.createElement("option");
+                    opt.value = idrf;
+                    datalistIdRfs.appendChild(opt);
+                });
+
+                document.getElementById("loadingMsg").style.display = "none";
+            })
+            .catch(err => {
+                document.getElementById("loadingMsg").innerText = "Error al cargar los datos. Verificá la URL.";
+                document.getElementById("loadingMsg").style.color = "#FF5252";
+            });
+        };
+
+        // Navegación
+        function irAIngresos() {
+            document.getElementById('menuPrincipal').style.display = 'none';
+            document.getElementById('moduloIngresos').style.display = 'block';
+        }
+
+        function irAGuardado() {
+            document.getElementById('menuPrincipal').style.display = 'none';
+            document.getElementById('moduloGuardado').style.display = 'block';
+            document.getElementById('g_inputIdRf').focus();
+        }
+
+        function volverAlMenu() {
+            document.getElementById('moduloIngresos').style.display = 'none';
+            document.getElementById('moduloGuardado').style.display = 'none';
+            document.getElementById('menuPrincipal').style.display = 'block';
+        }
+
+        // --- LÓGICA DE INGRESOS ---
+        function seleccionarOC() {
+            let ocBuscada = document.getElementById("inputOC").value.trim();
+            itemsDeOCActual = baseDatos.filter(i => getVal(i, ['OC', 'NRO_OC', 'NUMERO_OC']) === ocBuscada);
+
+            document.getElementById("inputCodigo").value = "";
+            limpiarSelectsYCampos();
+
+            document.getElementById("seccionCodigo").classList.add("disabled-section");
+            document.getElementById("seccionSelecciones").classList.add("disabled-section");
+            document.getElementById("seccionConfirmacion").classList.add("disabled-section");
+
+            if (itemsDeOCActual.length > 0) {
+                document.getElementById("seccionCodigo").classList.remove("disabled-section");
+                let codigosUnicos = [...new Set(itemsDeOCActual.map(i => getVal(i, ['CODIGO', 'COD', 'COD_ARTICULO'])).filter(x => x !== ""))];
+                let datalistCod = document.getElementById("listaCodigos");
+                datalistCod.innerHTML = "";
+                codigosUnicos.forEach(cod => {
+                    let opt = document.createElement("option");
+                    opt.value = cod;
+                    datalistCod.appendChild(opt);
+                });
+            }
+        }
+
+        function filtrarPorCodigo() {
+            let codigoBuscado = document.getElementById("inputCodigo").value.trim().toLowerCase();
+            limpiarSelectsYCampos();
+            document.getElementById("seccionConfirmacion").classList.add("disabled-section");
+
+            let coincidencias = itemsDeOCActual.filter(i => getVal(i, ['CODIGO', 'COD', 'COD_ARTICULO']).toLowerCase() === codigoBuscado);
+
+            if (coincidencias.length > 0) {
+                document.getElementById("seccionSelecciones").classList.remove("disabled-section");
+
+                let selPartida = document.getElementById("selectPartida");
+                let selIrc = document.getElementById("selectIrc");
+                let selLinea = document.getElementById("selectLinea");
+                let selLoteItem = document.getElementById("selectLoteItem");
+
+                let partidasUnicas = [...new Set(coincidencias.map(i => getVal(i, ['PARTIDA'])).filter(x => x !== ""))];
+                partidasUnicas.forEach(val => {
+                    let opt = document.createElement("option");
+                    opt.value = val;
+                    opt.text = val;
+                    selPartida.appendChild(opt);
+                });
+                if (partidasUnicas.length === 1) selPartida.value = partidasUnicas[0];
+
+                let ircsUnicos = [...new Set(coincidencias.map(i => getVal(i, ['IRC'])).filter(x => x !== ""))];
+                ircsUnicos.forEach(val => {
+                    let opt = document.createElement("option");
+                    opt.value = val;
+                    opt.text = val;
+                    selIrc.appendChild(opt);
+                });
+                if (ircsUnicos.length === 1) selIrc.value = ircsUnicos[0];
+
+                let lineasUnicas = [...new Set(coincidencias.map(i => getVal(i, ['LINEA', 'NRO_LINEA', 'NROLINEA'])).filter(x => x !== ""))];
+                lineasUnicas.forEach(val => {
+                    let opt = document.createElement("option");
+                    opt.value = val;
+                    opt.text = val;
+                    selLinea.appendChild(opt);
+                });
+                if (lineasUnicas.length === 1) selLinea.value = lineasUnicas[0];
+
+                coincidencias.forEach((item, index) => {
+                    let opt = document.createElement("option");
+                    opt.value = index;
+                    let loteVal = getVal(item, ['LOTE']);
+                    let cantVal = getVal(item, ['CANTIDAD', 'CANT']);
+                    let descLote = loteVal ? `Lote: ${loteVal}` : `Sin Lote (Bolso)`;
+                    opt.text = `${descLote} | Cant: ${cantVal}`;
+                    selLoteItem.appendChild(opt);
+                });
+
+                window.coincidenciasPorCodigo = coincidencias;
+                window.coincidenciasActuales = coincidencias;
+
+                if (coincidencias.length === 1) {
+                    selLoteItem.value = "0";
+                    cargarDatosFinales();
+                }
+            } else {
+                document.getElementById("seccionSelecciones").classList.add("disabled-section");
+            }
+        }
+
+        function filtrarPorSelectores() {
+            let partida = document.getElementById("selectPartida").value;
+            let irc = document.getElementById("selectIrc").value;
+            let linea = document.getElementById("selectLinea").value;
+            let base = window.coincidenciasPorCodigo || [];
+
+            let filtrados = base.filter(item => {
+                let okPartida = !partida || getVal(item, ['PARTIDA']) === partida;
+                let okIrc = !irc || getVal(item, ['IRC']) === irc;
+                let okLinea = !linea || getVal(item, ['LINEA', 'NRO_LINEA', 'NROLINEA']) === linea;
+                return okPartida && okIrc && okLinea;
+            });
+
+            let selLoteItem = document.getElementById("selectLoteItem");
+            selLoteItem.innerHTML = '<option value="">-- Seleccioná el lote/renglón --</option>';
+            document.getElementById("txtLote").value = "";
+            document.getElementById("txtCantidad").value = "";
+            document.getElementById("txtIdRf").value = "";
+            itemSeleccionadoActual = null;
+            document.getElementById("seccionConfirmacion").classList.add("disabled-section");
+
+            filtrados.forEach((item, index) => {
+                let opt = document.createElement("option");
+                opt.value = index;
+                let loteVal = getVal(item, ['LOTE']);
+                let cantVal = getVal(item, ['CANTIDAD', 'CANT']);
+                let descLote = loteVal ? `Lote: ${loteVal}` : `Sin Lote (Bolso)`;
+                opt.text = `${descLote} | Cant: ${cantVal}`;
+                selLoteItem.appendChild(opt);
+            });
+
+            window.coincidenciasActuales = filtrados;
+
+            if (filtrados.length === 1) {
+                selLoteItem.value = "0";
+                cargarDatosFinales();
+            }
+        }
+
+        function limpiarSelectsYCampos() {
+            document.getElementById("selectPartida").innerHTML = '<option value="">-- Seleccioná la Partida --</option>';
+            document.getElementById("selectIrc").innerHTML = '<option value="">-- Seleccioná el IRC --</option>';
+            document.getElementById("selectLinea").innerHTML = '<option value="">-- Seleccioná la Línea --</option>';
+            document.getElementById("selectLoteItem").innerHTML = '<option value="">-- Seleccioná el lote/renglón --</option>';
+            document.getElementById("txtLote").value = "";
+            document.getElementById("txtCantidad").value = "";
+            document.getElementById("txtIdRf").value = "";
+            itemSeleccionadoActual = null;
+        }
+
+        function cargarDatosFinales() {
+            let idx = document.getElementById("selectLoteItem").value;
+            if(idx === "") {
+                document.getElementById("seccionConfirmacion").classList.add("disabled-section");
+                return;
+            }
+            itemSeleccionadoActual = window.coincidenciasActuales[idx];
+            document.getElementById("txtLote").value = getVal(itemSeleccionadoActual, ['LOTE']);
+            document.getElementById("txtCantidad").value = getVal(itemSeleccionadoActual, ['CANTIDAD', 'CANT']);
+           
+            let valPartida = getVal(itemSeleccionadoActual, ['PARTIDA']);
+            if(valPartida) document.getElementById("selectPartida").value = valPartida;
+            let valIrc = getVal(itemSeleccionadoActual, ['IRC']);
+            if(valIrc) document.getElementById("selectIrc").value = valIrc;
+            let valLinea = getVal(itemSeleccionadoActual, ['LINEA', 'NRO_LINEA', 'NROLINEA']);
+            if(valLinea) document.getElementById("selectLinea").value = valLinea;
+
+            document.getElementById("seccionConfirmacion").classList.remove("disabled-section");
+            document.getElementById("txtIdRf").focus();
+        }
+
+        function resetearParaSiguienteItem() {
+            document.getElementById("inputCodigo").value = "";
+            limpiarSelectsYCampos();
+            document.getElementById("seccionSelecciones").classList.add("disabled-section");
+            document.getElementById("seccionConfirmacion").classList.add("disabled-section");
+            document.getElementById("inputCodigo").focus();
+        }
+
+        function enviarAlSheets() {
+            let idrf = document.getElementById("txtIdRf").value.trim();
+            let loteEditado = document.getElementById("txtLote").value.trim();
+            let cantidadEditada = document.getElementById("txtCantidad").value;
+
+            if(!itemSeleccionadoActual) { alert("Faltan datos por seleccionar."); return; }
+            if(!idrf) { alert("El campo ID RF es obligatorio."); document.getElementById("txtIdRf").focus(); return; }
+
+            let payload = {
+                oc: getVal(itemSeleccionadoActual, ['OC', 'NRO_OC']),
+                idrf: idrf,
+                codigo: getVal(itemSeleccionadoActual, ['CODIGO', 'COD']),
+                lote: loteEditado,
+                cantidad: cantidadEditada,
+                irc: document.getElementById("selectIrc").value,
+                partida: document.getElementById("selectPartida").value,
+                linea: document.getElementById("selectLinea").value
+            };
+
+            let btn = event.target;
+            btn.innerText = "ENVIANDO...";
+            btn.disabled = true;
+
+            fetch(URL_WEBHOOK, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                alert("¡Registrado correctamente!");
+                btn.innerText = "CONFIRMAR Y ENVIAR";
+                btn.disabled = false;
+                resetearParaSiguienteItem();
+            }).catch(err => {
+                alert("Error al enviar: " + err);
+                btn.innerText = "CONFIRMAR Y ENVIAR";
+                btn.disabled = false;
+            });
+        }
+
+        // --- LÓGICA DEL MÓDULO DE GUARDADO ---
+        function buscarPorIdRfGuardado() {
+            let idrfBuscado = document.getElementById("g_inputIdRf").value.trim().toLowerCase();
+
+            document.getElementById("g_txtOc").value = "";
+            document.getElementById("g_txtCodigo").value = "";
+            document.getElementById("g_txtLote").value = "";
+            document.getElementById("g_txtCantidad").value = "";
+            document.getElementById("g_seccionDatos").classList.add("disabled-section");
+            document.getElementById("g_seccionUbicacion").classList.add("disabled-section");
+            itemGuardadoActual = null;
+
+            if(!idrfBuscado) return;
+
+            let encontrado = baseDatos.find(i => getVal(i, ['ID RF', 'IDRF', 'ID_RF']).toLowerCase() === idrfBuscado);
+
+            if(encontrado) {
+                itemGuardadoActual = encontrado;
+               
+                document.getElementById("g_txtOc").value = getVal(encontrado, ['OC', 'NRO_OC']);
+                document.getElementById("g_txtCodigo").value = getVal(encontrado, ['CODIGO', 'COD']);
+                document.getElementById("g_txtLote").value = getVal(encontrado, ['LOTE']);
+                document.getElementById("g_txtCantidad").value = getVal(encontrado, ['CANTIDAD', 'CANT']);
+
+                document.getElementById("g_seccionDatos").classList.remove("disabled-section");
+                document.getElementById("g_seccionUbicacion").classList.remove("disabled-section");
+                document.getElementById("g_txtStk").focus();
+            }
+        }
+
+        function autocompletarDigito() {
+            let stkIngresado = document.getElementById("g_txtStk").value.trim().toUpperCase();
+            let campoDigito = document.getElementById("g_txtDigito");
+
+            if (baseUbicaciones[stkIngresado] !== undefined) {
+                campoDigito.value = baseUbicaciones[stkIngresado];
+            }
+        }
+
+        function enviarGuardadoAlSheets() {
+            let stk = document.getElementById("g_txtStk").value.trim();
+            let dig = document.getElementById("g_txtDigito").value.trim();
+            let ocManual = document.getElementById("g_txtOc").value.trim();
+            let codigoManual = document.getElementById("g_txtCodigo").value.trim();
+            let loteManual = document.getElementById("g_txtLote").value.trim();
+            let cantidadManual = document.getElementById("g_txtCantidad").value.trim();
+
+            let mus = document.getElementById("g_chkMus").checked ? "SI" : "NO";
+            let rot = document.getElementById("g_chkRot").checked ? "SI" : "NO";
+            let fao = document.getElementById("g_chkFao").checked ? "SI" : "NO";
+            let rec = document.getElementById("g_chkRec").checked ? "SI" : "NO";
+
+            if(!itemGuardadoActual) { alert("Primero buscá un ID RF válido."); return; }
+            if(!stk) { alert("La ubicación STK es obligatoria."); document.getElementById("g_txtStk").focus(); return; }
+            if(!dig) { alert("El dígito de confirmación ( DIG ) es obligatorio."); document.getElementById("g_txtDigito").focus(); return; }
+
+            let payloadGuardado = {
+                idrf: getVal(itemGuardadoActual, ['ID RF', 'IDRF', 'ID_RF']),
+                oc: ocManual,
+                codigo: codigoManual,
+                lote: loteManual,
+                cantidad: cantidadManual,
+                stk: stk,
+                dig: dig,
+                mus: mus,
+                rot: rot,
+                fao: fao,
+                rec: rec,
+                tipoAccion: "GUARDADO"
+            };
+
+            let btn = event.target;
+            btn.innerText = "GUARDANDO...";
+            btn.disabled = true;
+
+            fetch(URL_WEBHOOK, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payloadGuardado)
+            }).then(() => {
+                alert("¡Guardado registrado correctamente!");
+                btn.innerText = "CONFIRMAR GUARDADO";
+                btn.disabled = false;
+               
+                // Limpiar sección de guardado
+                document.getElementById("g_inputIdRf").value = "";
+                document.getElementById("g_txtStk").value = "";
+                document.getElementById("g_txtDigito").value = "";
+                document.getElementById("g_txtOc").value = "";
+                document.getElementById("g_txtCodigo").value = "";
+                document.getElementById("g_txtLote").value = "";
+                document.getElementById("g_txtCantidad").value = "";
+                document.getElementById("g_chkMus").checked = false;
+                document.getElementById("g_chkRot").checked = false;
+                document.getElementById("g_chkFao").checked = false;
+                document.getElementById("g_chkRec").checked = false;
+                document.getElementById("g_seccionDatos").classList.add("disabled-section");
+                document.getElementById("g_seccionUbicacion").classList.add("disabled-section");
+                document.getElementById("g_inputIdRf").focus();
+            }).catch(err => {
+                alert("Error al enviar: " + err);
+                btn.innerText = "CONFIRMAR GUARDADO";
+                btn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
